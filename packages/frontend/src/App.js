@@ -1,126 +1,125 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import {
+  Box,
+  Container,
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Fab,
+  Snackbar,
+  Alert,
+} from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
+import theme from './theme';
+import { useTasks } from './hooks/useTasks';
+import TaskList from './features/tasks/components/TaskList';
 import './App.css';
 
 function App() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [newItem, setNewItem] = useState('');
+  const {
+    tasks,
+    loading,
+    error,
+    addTask,
+    updateTask,
+    toggleTask,
+    deleteTask,
+  } = useTasks();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const fetchData = async () => {
+  const handleToggle = async (id) => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/items');
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const result = await response.json();
-      setData(result);
-      setError(null);
+      await toggleTask(id);
+      setSnackbar({ open: true, message: 'Task updated', severity: 'success' });
     } catch (err) {
-      setError('Failed to fetch data: ' + err.message);
-      console.error('Error fetching data:', err);
-    } finally {
-      setLoading(false);
+      setSnackbar({ open: true, message: 'Failed to update task', severity: 'error' });
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!newItem.trim()) return;
-
+  const handleDelete = async (id) => {
     try {
-      const response = await fetch('/api/items', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: newItem }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add item');
-      }
-
-      const result = await response.json();
-      setData([...data, result]);
-      setNewItem('');
+      await deleteTask(id);
+      setSnackbar({ open: true, message: 'Task deleted', severity: 'success' });
     } catch (err) {
-      setError('Error adding item: ' + err.message);
-      console.error('Error adding item:', err);
+      setSnackbar({ open: true, message: 'Failed to delete task', severity: 'error' });
     }
   };
 
-  const handleDelete = async (itemId) => {
+  const handleAddTask = async () => {
     try {
-      const response = await fetch(`/api/items/${itemId}`, {
-        method: 'DELETE',
+      await addTask({
+        title: 'New Task',
+        description: '',
+        priority: 'medium',
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete item');
-      }
-
-      setData(data.filter(item => item.id !== itemId));
-      setError(null);
+      setSnackbar({ open: true, message: 'Task created', severity: 'success' });
     } catch (err) {
-      setError('Error deleting item: ' + err.message);
-      console.error('Error deleting item:', err);
+      setSnackbar({ open: true, message: 'Failed to create task', severity: 'error' });
     }
   };
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>To Do App</h1>
-        <p>Keep track of your tasks</p>
-      </header>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        {/* App Bar */}
+        <AppBar position="static">
+          <Toolbar>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              TODO App
+            </Typography>
+            <Button color="inherit" onClick={handleAddTask} startIcon={<AddIcon />}>
+              Add Task
+            </Button>
+          </Toolbar>
+        </AppBar>
 
-      <main>
-        <section className="add-item-section">
-          <h2>Add New Item</h2>
-          <form onSubmit={handleSubmit}>
-            <input
-              type="text"
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              placeholder="Enter item name"
-            />
-            <button type="submit">Add Item</button>
-          </form>
-        </section>
+        {/* Main Content */}
+        <Container maxWidth="md" sx={{ mt: 4, mb: 4, flex: 1 }}>
+          <TaskList
+            tasks={tasks}
+            loading={loading}
+            error={error}
+            onToggle={handleToggle}
+            onDelete={handleDelete}
+          />
+        </Container>
 
-        <section className="items-section">
-          <h2>Items from Database</h2>
-          {loading && <p>Loading data...</p>}
-          {error && <p className="error">{error}</p>}
-          {!loading && !error && (
-            <ul>
-              {data.length > 0 ? (
-                data.map((item) => (
-                  <li key={item.id}>
-                    <span>{item.name}</span>
-                    <button 
-                      onClick={() => handleDelete(item.id)}
-                      className="delete-btn"
-                      type="button"
-                    >
-                      Delete
-                    </button>
-                  </li>
-                ))
-              ) : (
-                <p>No items found. Add some!</p>
-              )}
-            </ul>
-          )}
-        </section>
-      </main>
-    </div>
+        {/* Floating Action Button for mobile */}
+        <Fab
+          color="primary"
+          aria-label="add task"
+          onClick={handleAddTask}
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            display: { xs: 'flex', sm: 'none' },
+          }}
+        >
+          <AddIcon />
+        </Fab>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </ThemeProvider>
   );
 }
 
